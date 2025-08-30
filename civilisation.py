@@ -3,6 +3,12 @@ Defines a civilisation, fundamental agent in the intercivilisational dynamics si
 Each instance of this class represents a single civilisation with its own state and properties.
 """
 import math
+import random
+
+# Define constants for the simulation
+INTERACTION_RADIUS_MULTIPLIER = 2.0
+RESOURCE_GROWTH_RATE = 5.0
+TECH_GROWTH_RATE = 0.01
 
 class Civilisation:
     """
@@ -17,20 +23,14 @@ class Civilisation:
         is_active (bool): flag to check if C is still active in simulation
      """
     
-    def __init__(self, name: str, x: float, y: float, r=100.0, t=1.0):
+    def __init__(self, name: str, x: float, y: float, r: float=100.0, t: float=1.0):
         """Initialises new C with starting properties"""
         self.name = name
         self.x = x
         self.y = y
-
         self.resources = r
         self.tech = t
         self.is_active = True
-
-        self.resource_modifier = 5.0
-        self.tech_modifier = 0.01
-
-        print(f"Civilisation Created: {self.name}")
 
     def __repr__(self) -> str:
         """String representation for easy debugging"""
@@ -58,6 +58,8 @@ class Civilisation:
         self.is_active = bool
         return f"Is Active: {self.is_active}"
     
+    def check_is_active(self): return self.is_active
+
     def check_extinction(self):
         if self.resources <= 0:
             print(f"[{self.name}] has collapsed and is now extinct")
@@ -67,11 +69,10 @@ class Civilisation:
     def set_state(self):
         """
         Function to update the civilisation's internal state.
-        For now, resources and tech grow with a simple function.
+        Resources and tech grow with a simple function.
         """
-        self.resources += self.resource_modifier
-        self.tech += self.resources * self.tech_modifier
-        pass
+        self.resources += RESOURCE_GROWTH_RATE
+        self.tech += self.resources * TECH_GROWTH_RATE
     
     def set_resource_modifier(self, new_value):
         self.resource_modifier = new_value
@@ -89,9 +90,26 @@ class Civilisation:
         dy = self.y - other_y
         return math.sqrt(dx**2 + dy**2)
     
-    def interact(self, other_civ):
+    def get_interaction_radius(self) -> float:
         """
-        Defines how this civ interacts with another civ
+        Calculates the civilization's dynamic interaction radius.
+        The radius increases as a function of the technology level.
         """
-        pass
+        base_radius = 20.0
+        tech_multiplier = self.tech * INTERACTION_RADIUS_MULTIPLIER
+        return base_radius + tech_multiplier
+    
+    def get_attack_power(self) -> float:
+        """Calculates attack damage based on tech level."""
+        # Simple linear function: more tech equals more power.
+        return self.tech * 0.5 + random.uniform(0, 5)
+    
+    def interact(self, other_C):
+        """
+        Defines how this C interacts with another.
+        """
+        damage_dealt = self.get_attack_power()
+        other_C.resources -= damage_dealt
+        # A simple print for a key interaction
+        print(f"[{self.name}] dealt {damage_dealt:.2f} damage to [{other_C.name}].")
     

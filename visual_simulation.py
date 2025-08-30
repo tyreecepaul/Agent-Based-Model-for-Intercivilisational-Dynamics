@@ -4,12 +4,11 @@ from galaxy import Galaxy
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-NUM_STEPS = 1000
-GALAXY_SIZE = 1000
+from config import GALAXY_SIZE, NUM_STEPS, FIGURE_SIZE, PLOT_INTERVAL_MS
 
 def run_animation():
     """Sets up and runs the visualization animation."""
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=FIGURE_SIZE)
     fig.canvas.manager.set_window_title("Galactic Simulation")
     ax.set_xlim(0, GALAXY_SIZE)
     ax.set_ylim(0, GALAXY_SIZE)
@@ -68,7 +67,7 @@ def run_animation():
             # If simulation is finished, stop animation
             ani.event_source.stop()
 
-    ani = animation.FuncAnimation(fig, update, frames=NUM_STEPS, repeat=False, interval=500)
+    ani = animation.FuncAnimation(fig, update, frames=NUM_STEPS, repeat=False, interval=PLOT_INTERVAL_MS)
     plt.show()
 
 if __name__ == "__main__":

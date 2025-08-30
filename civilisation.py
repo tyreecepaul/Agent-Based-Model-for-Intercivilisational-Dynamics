@@ -5,10 +5,7 @@ Each instance of this class represents a single civilisation with its own state 
 import math
 import random
 
-# Define constants for the simulation
-INTERACTION_RADIUS_MULTIPLIER = 2.0
-RESOURCE_GROWTH_RATE = 5.0
-TECH_GROWTH_RATE = 0.01
+from config import RESOURCE_GROWTH_RATE, TECH_GROWTH_RATE, INTERACTION_RADIUS_MULTIPLIER
 
 class Civilisation:
     """

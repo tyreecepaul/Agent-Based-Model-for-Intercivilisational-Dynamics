@@ -4,8 +4,8 @@ Stores all tunable parameters in one place for easy management.
 """
 
 # Simulation controls
-NUM_STEPS = 1000
-GALAXY_SIZE = 1000
+NUM_STEPS = 10000
+GALAXY_SIZE = 10000
 
 # Civilisation constants
 DEFAULT_RESOURCES = 100.0
@@ -15,5 +15,5 @@ TECH_GROWTH_RATE = 0.01
 INTERACTION_RADIUS_MULTIPLIER = 2.0
 
 # Visualisation
-PLOT_INTERVAL_MS =  100   # update interval in milliseconds
+PLOT_INTERVAL_MS =  50   # update interval in milliseconds
 FIGURE_SIZE = (8, 8)

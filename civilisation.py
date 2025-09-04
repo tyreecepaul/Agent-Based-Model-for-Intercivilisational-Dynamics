@@ -20,7 +20,7 @@ class Civilisation:
         is_active (bool): flag to check if C is still active in simulation
      """
     
-    def __init__(self, name: str, x: float, y: float, r: float=100.0, t: float=1.0):
+    def __init__(self, name: str, x: float, y: float, col: str, r: float=100.0, t: float=1.0):
         """Initialises new C with starting properties"""
         self.name = name
         self.x = x
@@ -28,6 +28,7 @@ class Civilisation:
         self.resources = r
         self.tech = t
         self.is_active = True
+        self.colour = col
 
     def __repr__(self) -> str:
         """String representation for easy debugging"""

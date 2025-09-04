@@ -21,12 +21,12 @@ class Galaxy:
         self.civilisations = []
         print(f"Galaxy created ({self.width, self.height})")
 
-    def import_civilisation_default(self, name: str, x: float, y: float):
-        new_civ = Civilisation(name, x, y, )
+    def import_civilisation_default(self, name: str, x: float, y: float, col: str):
+        new_civ = Civilisation(name, x, y, col)
         self.civilisations.append(new_civ)
 
-    def import_civilisation(self, name: str, x: float, y: float, r=float, t=float):
-        new_civ = Civilisation(name, x, y, r, t)
+    def import_civilisation(self, name: str, x: float, y: float, r: float, t: float, col: str):
+        new_civ = Civilisation(name, x, y, r, t, col)
         self.civilisations.append(new_civ)
 
     def get_size_coordinates(self): return (self.width, self.height)
@@ -77,6 +77,8 @@ class Galaxy:
         print(f"Total active civilizations: {len(self.civilisations)}")
         if len(self.civilisations) <= 1:
             print("Simulation ended. Only one civilization or none left.")
+            if len(self.civilisations) == 1:
+                print(f"Winner: {self.civilisations[0]}")
             return False
         
         return True

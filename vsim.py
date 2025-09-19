@@ -1,5 +1,4 @@
-from civilisation import Civilisation
-from galaxy import Galaxy
+from env import Galaxy
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -18,7 +17,6 @@ def run_animation():
     ax.set_aspect('equal', adjustable='box')
     plt.style.use('dark_background')
 
-    
     def generate_random_hex_color():
         """Generates a random hexadecimal color code."""
         r = random.randint(50, 205)
@@ -27,22 +25,44 @@ def run_animation():
         hex_color = f"#{r:02x}{g:02x}{b:02x}"
         return hex_color
 
+    '''
     # Initial plot data
     galaxy = Galaxy(GALAXY_SIZE, GALAXY_SIZE)
-    for n in range(20):
-        galaxy.import_civilisation_default(f"{n}", random.uniform(0, GALAXY_SIZE), random.uniform(0, GALAXY_SIZE), col=generate_random_hex_color())
-
-    ''' 
-    galaxy.import_civilisation_default("Sol", random.uniform(0, GALAXY_SIZE), random.uniform(0, GALAXY_SIZE), col=generate_random_hex_color())
-    galaxy.import_civilisation_default("Alpha Centauri", random.uniform(0, GALAXY_SIZE), random.uniform(0, GALAXY_SIZE), col=generate_random_hex_color())
-    galaxy.import_civilisation_default("Proxima B", random.uniform(0, GALAXY_SIZE), random.uniform(0, GALAXY_SIZE), col=generate_random_hex_color())
-    galaxy.import_civilisation_default("Xylos", random.uniform(0, GALAXY_SIZE), random.uniform(0, GALAXY_SIZE), col=generate_random_hex_color())
+    for n in range(5):
+        galaxy.import_civilisation_default(f"{n}", random.uniform(0, GALAXY_SIZE), 
+                                           random.uniform(0, GALAXY_SIZE), 
+                                           col=generate_random_hex_color())
     '''
+    
+    galaxy = Galaxy(GALAXY_SIZE, GALAXY_SIZE)
+    galaxy.import_civilisation_default("Sol", random.uniform(0, GALAXY_SIZE), 
+                                       random.uniform(0, GALAXY_SIZE), 
+                                       col=generate_random_hex_color()
+                                       )
+    
+    galaxy.import_civilisation_default("Alpha Centauri", random.uniform(0, GALAXY_SIZE), 
+                                       random.uniform(0, GALAXY_SIZE), 
+                                       col=generate_random_hex_color()
+                                       )
+    
+    galaxy.import_civilisation_default("Proxima B", random.uniform(0, GALAXY_SIZE), 
+                                       random.uniform(0, GALAXY_SIZE), 
+                                       col=generate_random_hex_color()
+                                       )
+    
+    galaxy.import_civilisation_default("Xylos", random.uniform(0, GALAXY_SIZE), 
+                                       random.uniform(0, GALAXY_SIZE), 
+                                       col=generate_random_hex_color()
+                                       )
+    
 
     # Store plot elements for animation
     civilization_points = ax.scatter([], [])
     civilization_radii = []
     texts = []
+
+    # Define fixed planet size
+    FIXED_PLANET_SIZE = 100  # Adjust this value to your preferred size
 
     def update(frame):
         nonlocal galaxy
@@ -66,9 +86,10 @@ def run_animation():
             ax.set_title(f"Galactic Civilization Dynamics\nTime Step: {galaxy.time_step}", color='white')
             ax.set_aspect('equal', adjustable='box')
 
-            ax.scatter(x_coords, y_coords, s=[tech * 2 for tech in tech_levels], c=colours, alpha=0.8, edgecolors='white', linewidth=1)
+            # Use fixed size for all planets instead of tech-based sizing
+            ax.scatter(x_coords, y_coords, s=FIXED_PLANET_SIZE, c=colours, alpha=0.8, edgecolors='white', linewidth=1)
             
-            # Draw interaction radii
+            # Draw interaction radii (these will still expand based on tech/resources)
             for civ in galaxy.civilisations:
                 radius = civ.get_interaction_radius()
                 circle = plt.Circle((civ.x, civ.y), radius, color='white', fill=False, linestyle='--', alpha=0.2)
@@ -87,18 +108,3 @@ def run_animation():
 
 if __name__ == "__main__":
     run_animation()
-
-# for each timestep
-    # for each civilistion
-        # action = civ.get_action(state)
-        # civ.update_env(action)
-
-# class Civ
-#   init takes in:
-    # - attaching func
-    # - defensive func
-    # - passive func
-
-# def make_action(state):
-    # do some stuff....
-    # choose one of attacking func, defensive func, passive fuunc

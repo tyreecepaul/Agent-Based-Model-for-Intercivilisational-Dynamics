@@ -2,7 +2,8 @@
 This file defines the Galaxy class, which serves as the simulation engine.
 It manages all civilization agents and orchestrates the main simulation loop.
 """
-from civilisation import Civilisation
+from agent import Civilisation
+from interaction import InteractionManager
 class Galaxy:
     """
     Manages simulation of civs within a defined space.
@@ -69,8 +70,7 @@ class Galaxy:
             
             for civ_b in neighbors:
                 if civ_b.check_is_active():
-                    civ_a.interact(civ_b)
-                    civ_b.check_extinction()
+                    InteractionManager.resolve_interaction(civ_a, civ_b, self)
 
         # Phase 3: Post-step Cleanup
         self.civilisations = [c for c in self.civilisations if c.check_is_active()]

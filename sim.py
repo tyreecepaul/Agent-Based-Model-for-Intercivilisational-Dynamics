@@ -1,5 +1,5 @@
-from civilisation import Civilisation
-from galaxy import Galaxy
+from agent import Civilisation
+from env import Galaxy
 
 import random
 

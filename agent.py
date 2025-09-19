@@ -97,17 +97,3 @@ class Civilisation:
         tech_multiplier = self.tech * INTERACTION_RADIUS_MULTIPLIER
         return base_radius + tech_multiplier
     
-    def get_attack_power(self) -> float:
-        """Calculates attack damage based on tech level."""
-        # Simple linear function: more tech equals more power.
-        return self.tech * 0.5 + random.uniform(0, 5)
-    
-    def interact(self, other_C):
-        """
-        Defines how this C interacts with another.
-        """
-        damage_dealt = self.get_attack_power()
-        other_C.resources -= damage_dealt
-        # A simple print for a key interaction
-        print(f"[{self.name}] dealt {damage_dealt:.2f} damage to [{other_C.name}].")
-    

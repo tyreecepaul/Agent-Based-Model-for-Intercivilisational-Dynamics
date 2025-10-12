@@ -87,9 +87,6 @@ def run_animation():
             ani.event_source.stop()
             return
         
-        # ====================================================================
-        # MAIN GALAXY VIEW
-        # ====================================================================
         ax_main.clear()
         ax_main.set_xlim(0, GALAXY_SIZE)
         ax_main.set_ylim(0, GALAXY_SIZE)
@@ -181,10 +178,7 @@ def run_animation():
                         color=label_color, fontsize=7,
                         bbox=dict(boxstyle='round,pad=0.3', 
                                 facecolor='black', alpha=0.7, edgecolor=label_color))
-        
-        # ====================================================================
-        # STATISTICS PANEL
-        # ====================================================================
+
         ax_stats.clear()
         ax_stats.axis('off')
         
@@ -237,10 +231,7 @@ def run_animation():
                      transform=ax_stats.transAxes,
                      fontsize=9, verticalalignment='top',
                      color='white', family='monospace')
-        
-        # ====================================================================
-        # RESOURCE PRESSURE GAUGE
-        # ====================================================================
+ 
         ax_pressure.clear()
         ax_pressure.set_xlim(0, 1)
         ax_pressure.set_ylim(0, 1)

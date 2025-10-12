@@ -47,7 +47,13 @@ try:
         MIN_DETECTION_PROBABILITY,
         DISMANTLE_RETURN_RATE,
         DISMANTLE_MIN_THRESHOLD,
-        DISMANTLE_AMOUNT_FRACTION
+        DISMANTLE_AMOUNT_FRACTION,
+        CAMO_ACCURACY_REDUCTION,
+        CAMO_MAX_ACCURACY_REDUCTION,
+        SHADOW_RECON_BASE_COST,
+        SHADOW_RECON_SUCCESS_MULTIPLIER,
+        SHADOW_RECON_DETECTION_PENALTY,
+        SHADOW_RECON_COOLDOWN,
     )
 except ImportError:
     TECH_EXPLOSION_BASE_PROBABILITY = 0.05
@@ -83,6 +89,12 @@ except ImportError:
     DISMANTLE_RETURN_RATE = 0.80
     DISMANTLE_MIN_THRESHOLD = 1.0
     DISMANTLE_AMOUNT_FRACTION = 0.25
+    CAMO_ACCURACY_REDUCTION = 0.03
+    CAMO_MAX_ACCURACY_REDUCTION = 0.30
+    SHADOW_RECON_BASE_COST = 10.0
+    SHADOW_RECON_SUCCESS_MULTIPLIER = 1.0
+    SHADOW_RECON_DETECTION_PENALTY = 0.8
+    SHADOW_RECON_COOLDOWN = 5
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -141,6 +153,13 @@ class Civilisation:
         self.total_invested_in_weapons = 0.0
         self.total_invested_in_search = 0.0
         self.total_invested_in_camo = 0.0
+        
+        # Shadow reconnaissance tracking
+        self.recon_cooldowns = {}  # {target_name: turns_remaining}
+        self.recon_intel = {}  # {target_name: {'resources': X, 'tech': Y, ...}}
+        self.recon_attempts = 0
+        self.successful_recons = 0
+        self.failed_recons = 0
         
         # Economic strategy preferences
         self.strategy_weights = {
@@ -790,11 +809,15 @@ class Civilisation:
     def check_is_active(self): 
         return self.is_active
     
-    def calculate_hit_probability(self) -> float:
+    def calculate_hit_probability(self, target: 'Civilisation' = None) -> float:
         """
         Calculate probability of successful attack hit.
         Improves with weapon investment and combat experience.
+        Target's camo investment reduces hit probability.
         Never reaches 100% - always some uncertainty.
+        
+        Args:
+            target: Target civilization (their camo reduces accuracy)
         
         Returns:
             float: Hit probability between HIT_ACCURACY_BASE and HIT_ACCURACY_MAX
@@ -813,9 +836,16 @@ class Civilisation:
         else:
             experience_bonus = 0.0
         
-        # Calculate total accuracy (capped at max)
+        # Calculate base accuracy (capped at max)
         accuracy = base_accuracy + investment_bonus + experience_bonus
         accuracy = min(HIT_ACCURACY_MAX, accuracy)
+        
+        # Camo defense: target's camo reduces attacker's hit chance
+        if target and target.camo_investment > 0:
+            camo_penalty = min(CAMO_MAX_ACCURACY_REDUCTION, 
+                             target.camo_investment * CAMO_ACCURACY_REDUCTION)
+            accuracy -= camo_penalty
+            accuracy = max(0.1, accuracy)  # Minimum 10% hit chance
         
         self.current_accuracy = accuracy
         return accuracy
@@ -936,6 +966,89 @@ class Civilisation:
         new_q = current_q + Q_LEARNING_RATE * (reward + Q_DISCOUNT_FACTOR * max_next_q - current_q)
         self.q_table[state][action] = new_q
 
+    def shadow_reconnaissance(self, target: 'Civilisation') -> tuple[bool, dict]:
+        """
+        Attempt stealth reconnaissance on target civilization.
+        High camo increases success chance, target's search makes detection more likely.
+        
+        Args:
+            target: Target civilization to spy on
+            
+        Returns:
+            tuple: (success: bool, intel: dict or None)
+        """
+        # Check cooldown
+        if target.name in self.recon_cooldowns and self.recon_cooldowns[target.name] > 0:
+            return False, {'error': 'cooldown', 'turns_remaining': self.recon_cooldowns[target.name]}
+        
+        # Check if have enough resources
+        if self.resources < SHADOW_RECON_BASE_COST:
+            return False, {'error': 'insufficient_resources'}
+        
+        # Pay recon cost
+        self.resources -= SHADOW_RECON_BASE_COST
+        self.recon_attempts += 1
+        
+        # Calculate success probability
+        # Success = camo / (target_search + multiplier)
+        # Higher camo = better stealth, higher target search = better detection
+        success_denominator = target.search_investment + SHADOW_RECON_SUCCESS_MULTIPLIER
+        success_chance = self.camo_investment / success_denominator
+        success_chance = min(0.9, success_chance)  # Max 90% success
+        success_chance = max(0.1, success_chance)  # Min 10% success
+        
+        is_success = random.random() < success_chance
+        
+        if is_success:
+            # Successful recon - gather intel
+            self.successful_recons += 1
+            intel = {
+                'resources': target.resources,
+                'tech': target.tech,
+                'weapon_investment': target.weapon_investment,
+                'search_investment': target.search_investment,
+                'camo_investment': target.camo_investment,
+                'known_civs_count': len(target.known_civs),
+                'survival_drive': target.survival_drive,
+                'timestamp': 'current'
+            }
+            
+            # Store intel
+            self.recon_intel[target.name] = intel
+            
+            # Set cooldown
+            self.recon_cooldowns[target.name] = SHADOW_RECON_COOLDOWN
+            
+            return True, intel
+        else:
+            # Failed recon - detected!
+            self.failed_recons += 1
+            
+            # Target learns about us and suspicion spikes
+            if target.name not in self.known_civs:
+                self.known_civs[target.name] = 0.0
+            
+            # Massive suspicion increase for caught spy
+            if self.name in target.known_civs:
+                target.known_civs[self.name] = min(1.0, target.known_civs[self.name] + SHADOW_RECON_DETECTION_PENALTY)
+            else:
+                target.known_civs[self.name] = SHADOW_RECON_DETECTION_PENALTY
+            
+            # We also learn about them (mutual discovery)
+            self.known_civs[target.name] = min(1.0, self.known_civs[target.name] + 0.5)
+            
+            # Set longer cooldown for failed attempt
+            self.recon_cooldowns[target.name] = SHADOW_RECON_COOLDOWN * 2
+            
+            return False, {'error': 'detected', 'suspicion_gain': SHADOW_RECON_DETECTION_PENALTY}
+    
+    def update_recon_cooldowns(self):
+        """Decrease cooldowns for all targets. Call each turn."""
+        for target_name in list(self.recon_cooldowns.keys()):
+            self.recon_cooldowns[target_name] -= 1
+            if self.recon_cooldowns[target_name] <= 0:
+                del self.recon_cooldowns[target_name]
+
     def check_extinction(self):
         if self.resources <= 0:
             print(f"[{self.name}] has collapsed and is now extinct")
@@ -950,6 +1063,9 @@ class Civilisation:
             resource_growth_rate: Base resource growth rate
             tech_growth_rate: Base tech growth rate
         """
+        # Update recon cooldowns
+        self.update_recon_cooldowns()
+        
         # AXIOM 2: Resource growth with finite resources
         effective_growth = self.calculate_growth_rate(galaxy, resource_growth_rate)
         self.resources += effective_growth

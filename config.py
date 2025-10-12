@@ -113,6 +113,17 @@ LOUD_INVASION_BASE_DETECTION_PROB = 0.95  # 95% base detection chance during lou
 CAMO_DETECTION_REDUCTION_FACTOR = 0.05    # Each camo point reduces detection by 5%
 MIN_DETECTION_PROBABILITY = 0.20          # Minimum 20% detection chance (never fully invisible)
 
+# Camo Benefits (ROI Improvements)
+CAMO_SILENT_INVASION_DISCOUNT = 0.02      # Each camo point reduces silent invasion cost by 2%
+CAMO_ACCURACY_REDUCTION = 0.03            # Each camo point reduces attacker accuracy by 3%
+CAMO_MAX_ACCURACY_REDUCTION = 0.30        # Maximum 30% accuracy reduction from camo
+
+# Shadow Reconnaissance (Stealth Intel)
+SHADOW_RECON_BASE_COST = 10.0             # Base resource cost for shadow recon attempt
+SHADOW_RECON_SUCCESS_MULTIPLIER = 1.0     # Success = camo / (target_search + this)
+SHADOW_RECON_DETECTION_PENALTY = 0.8      # Suspicion increase if caught
+SHADOW_RECON_COOLDOWN = 5                 # Turns between recon attempts on same target
+
 # Q-Learning Parameters (Bellman Equation)
 Q_LEARNING_RATE = 0.1
 Q_DISCOUNT_FACTOR = 0.9

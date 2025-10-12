@@ -11,8 +11,15 @@ try:
         ARMS_RACE_COST,
         ARMS_RACE_TECH_GAIN,
         DEFENSE_COST,
+        FIRST_STRIKE_ADVANTAGE,
+        RETALIATION_STRENGTH,
+        RESOURCE_CAPTURE_RATE,
         SILENT_INVASION_COST_MULTIPLIER,
-        LOUD_INVASION_EXPOSURE_SUSPICION
+        LOUD_INVASION_EXPOSURE_SUSPICION,
+        VERBOSE_COMBAT,
+        CAMO_SILENT_INVASION_DISCOUNT,
+        CAMO_ACCURACY_REDUCTION,
+        CAMO_MAX_ACCURACY_REDUCTION,
     )
 except ImportError:
     COOPERATION_BENEFIT_BASE = 15.0
@@ -36,13 +43,54 @@ class InteractionManager:
     - Trust and cooperate (risky due to suspicion)
     - Strike first (driven by survival and resource scarcity)
     - Remain hidden/passive (safest but limits growth)
+    - Shadow reconnaissance (gather intel with stealth)
     """
+    
+    @staticmethod
+    def _attempt_shadow_recon(observer: Civilisation, target: Civilisation):
+        """
+        Civilization may attempt shadow reconnaissance before deciding on action.
+        Only attempted if:
+        - Observer has high camo (>= 3)
+        - Not on cooldown
+        - Has sufficient resources
+        - Some suspicion exists (motivation to gather intel)
+        
+        Args:
+            observer: Civilization attempting recon
+            target: Target of reconnaissance
+        """
+        # Check if conditions are met for recon attempt
+        has_high_camo = observer.camo_investment >= 3.0
+        has_suspicion = target.name in observer.known_civs and observer.known_civs[target.name] > 0.3
+        not_on_cooldown = target.name not in observer.recon_cooldowns or observer.recon_cooldowns[target.name] <= 0
+        has_resources = observer.resources >= 10.0
+        
+        # Probabilistic decision: 30% chance if all conditions met
+        should_attempt = has_high_camo and has_suspicion and not_on_cooldown and has_resources
+        will_attempt = should_attempt and random.random() < 0.3
+        
+        if will_attempt:
+            print(f"   🕵️  [{observer.name}] attempts shadow reconnaissance on [{target.name}]")
+            success, intel = observer.shadow_reconnaissance(target)
+            
+            if success:
+                print(f"   ✅ SUCCESS! Gathered intel: R={intel['resources']:.1f}, "
+                      f"T={intel['tech']:.2f}, W={intel['weapon_investment']:.1f}")
+            else:
+                if intel.get('error') == 'detected':
+                    print(f"   ❌ DETECTED! Suspicion increased by {intel['suspicion_gain']:.1%}")
+                elif intel.get('error') == 'cooldown':
+                    pass  # Silent - cooldown active
+                elif intel.get('error') == 'insufficient_resources':
+                    pass  # Silent - not enough resources
     
     @staticmethod
     def resolve_interaction(civ_a: Civilisation, civ_b: Civilisation, galaxy: Galaxy):
         """
         Resolve interaction between two civilizations using Dark Forest axioms.
         Each civilization independently evaluates whether to strike first.
+        May also attempt shadow reconnaissance before attacking.
         
         Args:
             civ_a: First civilization
@@ -50,9 +98,15 @@ class InteractionManager:
             galaxy: Galaxy instance
         """
         
+        # Phase 0: Shadow Reconnaissance (if high camo and opportunity)
+        # Civilizations with high camo may attempt stealth intel gathering
+        InteractionManager._attempt_shadow_recon(civ_a, civ_b)
+        InteractionManager._attempt_shadow_recon(civ_b, civ_a)
+        
         # Calculate first strike probabilities (based on all three axioms)
         strike_prob_a = civ_a.calculate_first_strike_probability(civ_b, galaxy)
         strike_prob_b = civ_b.calculate_first_strike_probability(civ_a, galaxy)
+
         
         # Both civilizations independently decide
         a_strikes = random.random() < strike_prob_a
@@ -108,6 +162,7 @@ class InteractionManager:
     def _silent_invasion(attacker: 'Civilisation', target: 'Civilisation', galaxy: Galaxy) -> float:
         """
         Execute a silent invasion - no location exposure but high resource cost.
+        Camo investment reduces the cost of silent invasions.
         
         Args:
             attacker: The attacking civilization
@@ -119,10 +174,31 @@ class InteractionManager:
         """
         print(f"   🤫 SILENT INVASION: [{attacker.name}] invades covertly")
         
-        # Silent invasion cost (significant resource expenditure for stealth)
-        stealth_cost = attacker.resources * SILENT_INVASION_COST_MULTIPLIER
+        # Silent invasion base cost
+        base_cost_multiplier = SILENT_INVASION_COST_MULTIPLIER
+        
+        # Camo benefit: reduce silent invasion cost
+        camo_discount = min(0.5, attacker.camo_investment * CAMO_SILENT_INVASION_DISCOUNT)
+        effective_cost_multiplier = base_cost_multiplier * (1 - camo_discount)
+        
+        stealth_cost = attacker.resources * effective_cost_multiplier
         attacker.resources -= stealth_cost
-        print(f"   💸 Stealth operations cost: {stealth_cost:.2f} resources")
+        
+        if attacker.camo_investment > 0:
+            print(f"   🎭 Camo benefit: Cost reduced by {camo_discount:.1%} (camo: {attacker.camo_investment:.1f})")
+        print(f"   💸 Stealth operations cost: {stealth_cost:.2f} resources (effective rate: {effective_cost_multiplier:.1%})")
+        
+        # Calculate hit probability (target's camo reduces accuracy)
+        hit_probability = attacker.calculate_hit_probability(target)
+        attack_hits = random.random() < hit_probability
+        
+        if target.camo_investment > 0:
+            camo_penalty = min(CAMO_MAX_ACCURACY_REDUCTION, 
+                             target.camo_investment * CAMO_ACCURACY_REDUCTION)
+            print(f"   🎭 Target camo defense: Accuracy reduced by {camo_penalty:.1%} (camo: {target.camo_investment:.1f})")
+        
+        # Record the result for learning
+
         
         # Calculate hit probability
         hit_probability = attacker.calculate_hit_probability()
@@ -200,9 +276,14 @@ class InteractionManager:
         """
         print(f"   📢 LOUD INVASION: [{attacker.name}] attacks openly!")
         
-        # Calculate hit probability
-        hit_probability = attacker.calculate_hit_probability()
+        # Calculate hit probability (target's camo reduces accuracy)
+        hit_probability = attacker.calculate_hit_probability(target)
         attack_hits = random.random() < hit_probability
+        
+        if target.camo_investment > 0:
+            camo_penalty = min(CAMO_MAX_ACCURACY_REDUCTION, 
+                             target.camo_investment * CAMO_ACCURACY_REDUCTION)
+            print(f"   🎭 Target camo defense: Accuracy reduced by {camo_penalty:.1%} (camo: {target.camo_investment:.1f})")
         
         # Record the result for learning
         attacker.record_attack_result(attack_hits)

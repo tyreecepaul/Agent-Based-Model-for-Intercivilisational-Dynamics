@@ -183,8 +183,6 @@ Recent enhancements addressed the historically poor return on camouflage investm
    cooldown = 5 turns
    ```
 
-See [CAMO_IMPROVEMENTS.md](CAMO_IMPROVEMENTS.md) for detailed analysis.
-
 ---
 
 ## Usage

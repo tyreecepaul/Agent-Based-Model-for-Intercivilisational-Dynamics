@@ -1,19 +1,104 @@
 """
-Central configuration file for the Galactic Simulation project.
-Stores all tunable parameters in one place for easy management.
+Central configuration for the Dark Forest simulation.
+All tunable parameters in one place for easy management.
 """
 
-# Simulation controls
-NUM_STEPS = 10000
-GALAXY_SIZE = 10000
+DEFAULT_STARTING_RESOURCES = 100.0
+DEFAULT_STARTING_TECH = 1.0
 
-# Civilisation constants
-DEFAULT_RESOURCES = 100.0
-DEFAULT_TECH = 1.0
+# Randomization ranges for civilization creation
+MIN_STARTING_RESOURCES = 80.0
+MAX_STARTING_RESOURCES = 150.0
+MIN_STARTING_TECH = 0.5
+MAX_STARTING_TECH = 2.0
+
+GALAXY_SIZE = 10000
+TOTAL_UNIVERSE_RESOURCES = 1000.0
+
+# Survival drive range
+MIN_SURVIVAL_DRIVE = 0.7
+MAX_SURVIVAL_DRIVE = 1.0
+
 RESOURCE_GROWTH_RATE = 5.0
 TECH_GROWTH_RATE = 0.01
-INTERACTION_RADIUS_MULTIPLIER = 2.0
 
-# Visualisation
-PLOT_INTERVAL_MS =  50   # update interval in milliseconds
-FIGURE_SIZE = (8, 8)
+# Resource pressure thresholds
+RESOURCE_PRESSURE_LOW = 0.3
+RESOURCE_PRESSURE_MED = 0.6
+RESOURCE_PRESSURE_HIGH = 0.9
+
+TECH_EXPLOSION_BASE_PROBABILITY = 0.05
+TECH_EXPLOSION_MIN_GAIN = 0.10
+TECH_EXPLOSION_MAX_GAIN = 0.50
+TECH_EXPLOSION_MOMENTUM_CAP = 2.0
+INTERACTION_RADIUS_MULTIPLIER = 0.1
+
+# Suspicion thresholds
+SUSPICION_LOW = 0.3
+SUSPICION_MEDIUM = 0.7
+SUSPICION_HIGH = 0.7
+
+FIRST_STRIKE_ADVANTAGE = 1.5
+RETALIATION_STRENGTH = 0.7
+RESOURCE_CAPTURE_RATE = 0.5
+
+# Economic System: Investment Parameters
+
+# Investment efficiency (capability gained per resource spent)
+WEAPON_INVESTMENT_EFFICIENCY = 0.5
+SEARCH_INVESTMENT_EFFICIENCY = 2.0
+CAMO_INVESTMENT_EFFICIENCY = 0.3
+
+# Diminishing returns cost scaling
+# Formula: cost = base * (1 + level)^scaling
+WEAPON_COST_SCALING = 1.35
+SEARCH_COST_SCALING = 1.40
+CAMO_COST_SCALING = 1.38
+
+# Base costs
+WEAPON_BASE_COST = 1.0
+SEARCH_BASE_COST = 1.0
+CAMO_BASE_COST = 1.0
+
+# Weapon power scaling
+WEAPON_BASE_POWER = 10
+WEAPON_TECH_MULTIPLIER = 0.05
+WEAPON_RESOURCE_THRESHOLD = 50
+
+# Detection and stealth
+BASE_DETECTION_RADIUS = 20.0
+SEARCH_RANGE_PER_POINT = 5.0
+CAMO_MAX_REDUCTION = 0.5
+CAMO_EFFECTIVENESS_FACTOR = 0.1
+
+# Economic allocation
+MIN_ALLOCATION_FRACTION = 0.1
+MAX_ALLOCATION_FRACTION = 0.6
+RESOURCE_ALLOCATION_PERCENTAGE = 0.3
+
+# Diplomatic costs
+COOPERATION_BENEFIT_BASE = 15.0
+ARMS_RACE_COST = 10.0
+ARMS_RACE_TECH_GAIN = 2.0
+DEFENSE_COST = 8.0
+
+# Simulation parameters
+NUM_STEPS = 1000
+PLOT_INTERVAL_MS = 100
+FIGURE_SIZE = (12, 10)
+
+# First strike decision weights
+WEIGHT_SUSPICION = 0.30
+WEIGHT_RESOURCE_NEED = 0.30
+WEIGHT_TECH_ADVANTAGE = 0.20
+WEIGHT_SURVIVAL_THREAT = 0.20
+
+# Visualization
+FIXED_PLANET_SIZE = 120
+SHOW_INTERACTION_RADII = True
+SHOW_SUSPICION_LEVELS = True
+
+# Debug logging
+VERBOSE_COMBAT = True
+VERBOSE_INTERACTIONS = True
+SHOW_AXIOM_CALCULATIONS = False

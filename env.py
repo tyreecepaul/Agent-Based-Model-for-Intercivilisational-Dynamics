@@ -70,22 +70,36 @@ class Galaxy:
     
     def enforce_resource_conservation(self):
         """
-        Enforce universe resource limit.
+        Enforce universe resource limit (AXIOM 2: Resource chains are finite).
         
         If total resources exceed limit, proportionally reduce all 
-        civilizations' resources to maintain conservation.
+        civilizations' resources to maintain conservation law.
+        
+        This simulates the hard cap on galactic resources - civilizations
+        must compete for a fixed resource pool.
         """
         total_used = self.get_total_active_resources()
         
         if total_used > self.total_resources:
-            # Proportionally reduce all civilizations' resources
+            # Calculate how much over the limit we are
+            excess = total_used - self.total_resources
             reduction_factor = self.total_resources / total_used
             
+            print(f"\n⚠️  AXIOM 2 ENFORCEMENT: Resource Cap Exceeded!")
+            print(f"   Total Resources Used: {total_used:.0f} / {self.total_resources:.0f}")
+            print(f"   Excess: {excess:.0f} (over limit by {(excess/self.total_resources)*100:.1f}%)")
+            print(f"   Applying {(1-reduction_factor)*100:.1f}% reduction to all civilizations")
+            
+            # Proportionally reduce all civilizations' resources
             for civ in self.civilisations:
                 if civ.check_is_active():
+                    old_resources = civ.resources
                     civ.resources *= reduction_factor
+                    lost = old_resources - civ.resources
+                    if lost > 1.0:  # Only print significant losses
+                        print(f"      • {civ.name}: {old_resources:.0f} → {civ.resources:.0f} (-{lost:.0f})")
             
-            print(f"⚠️  Resource limit exceeded! Applied {reduction_factor:.2%} reduction across all civilizations")
+            print(f"   New Total: {self.get_total_active_resources():.0f} / {self.total_resources:.0f} ✓")
     
     def import_civilisation_default(self, name: str, x: float, y: float, col: str):
         """
@@ -188,6 +202,14 @@ class Galaxy:
         print(f"\n💰 Phase 0: Economic Resource Allocation")
         for civ in self.civilisations:
             if civ.check_is_active() and civ.resources > 0:
+                # Check if civilization should dismantle due to resource pressure
+                should_dismantle, category = civ.should_dismantle(self)
+                if should_dismantle:
+                    print(f"  ⚠️ Resource Pressure {self.get_resource_pressure():.1%}: {civ.name} considering dismantling...")
+                    recovered = civ.dismantle_investment(category)
+                    if recovered > 0:
+                        print(f"     💰 Recovered {recovered:.1f} resources (now have {civ.resources:.1f})")
+                
                 # Determine how much to allocate (% of current resources)
                 available_for_allocation = civ.resources * RESOURCE_ALLOCATION_PERCENTAGE
                 resources_before = civ.resources

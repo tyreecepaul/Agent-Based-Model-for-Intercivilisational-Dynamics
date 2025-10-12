@@ -22,6 +22,11 @@ MAX_SURVIVAL_DRIVE = 1.0
 RESOURCE_GROWTH_RATE = 5.0
 TECH_GROWTH_RATE = 0.01
 
+# Resource Dismantling (Axiom 2 Enforcement)
+DISMANTLE_RETURN_RATE = 0.80          # 80% of invested resources returned
+DISMANTLE_MIN_THRESHOLD = 1.0         # Minimum investment level to dismantle
+DISMANTLE_AMOUNT_FRACTION = 0.25      # Dismantle 25% of investment at a time
+
 # Resource pressure thresholds
 RESOURCE_PRESSURE_LOW = 0.3
 RESOURCE_PRESSURE_MED = 0.6
@@ -92,6 +97,27 @@ WEIGHT_SUSPICION = 0.30
 WEIGHT_RESOURCE_NEED = 0.30
 WEIGHT_TECH_ADVANTAGE = 0.20
 WEIGHT_SURVIVAL_THREAT = 0.20
+
+# Combat Accuracy System (Bellman Equation Learning)
+HIT_ACCURACY_BASE = 0.30
+HIT_ACCURACY_MAX = 0.85
+ACCURACY_LEARNING_RATE = 0.05
+ACCURACY_INVESTMENT_FACTOR = 0.08
+
+# Invasion Strategy Costs
+SILENT_INVASION_COST_MULTIPLIER = 0.40
+LOUD_INVASION_EXPOSURE_SUSPICION = 0.6
+
+# Detection Avoidance (Camo-based)
+LOUD_INVASION_BASE_DETECTION_PROB = 0.95  # 95% base detection chance during loud invasion
+CAMO_DETECTION_REDUCTION_FACTOR = 0.05    # Each camo point reduces detection by 5%
+MIN_DETECTION_PROBABILITY = 0.20          # Minimum 20% detection chance (never fully invisible)
+
+# Q-Learning Parameters (Bellman Equation)
+Q_LEARNING_RATE = 0.1
+Q_DISCOUNT_FACTOR = 0.9
+Q_EXPLORATION_RATE = 0.2
+Q_EXPLORATION_DECAY = 0.995
 
 # Visualization
 FIXED_PLANET_SIZE = 120

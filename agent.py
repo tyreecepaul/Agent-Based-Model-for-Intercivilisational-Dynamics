@@ -32,7 +32,22 @@ try:
         WEIGHT_SUSPICION,
         WEIGHT_RESOURCE_NEED,
         WEIGHT_TECH_ADVANTAGE,
-        WEIGHT_SURVIVAL_THREAT
+        WEIGHT_SURVIVAL_THREAT,
+        HIT_ACCURACY_BASE,
+        HIT_ACCURACY_MAX,
+        ACCURACY_LEARNING_RATE,
+        ACCURACY_INVESTMENT_FACTOR,
+        Q_LEARNING_RATE,
+        Q_DISCOUNT_FACTOR,
+        Q_EXPLORATION_RATE,
+        Q_EXPLORATION_DECAY,
+        SILENT_INVASION_COST_MULTIPLIER,
+        LOUD_INVASION_BASE_DETECTION_PROB,
+        CAMO_DETECTION_REDUCTION_FACTOR,
+        MIN_DETECTION_PROBABILITY,
+        DISMANTLE_RETURN_RATE,
+        DISMANTLE_MIN_THRESHOLD,
+        DISMANTLE_AMOUNT_FRACTION
     )
 except ImportError:
     TECH_EXPLOSION_BASE_PROBABILITY = 0.05
@@ -53,6 +68,21 @@ except ImportError:
     CAMO_MAX_REDUCTION = 0.5
     CAMO_EFFECTIVENESS_FACTOR = 0.1
     RESOURCE_ALLOCATION_PERCENTAGE = 0.3
+    HIT_ACCURACY_BASE = 0.30
+    HIT_ACCURACY_MAX = 0.85
+    ACCURACY_LEARNING_RATE = 0.05
+    ACCURACY_INVESTMENT_FACTOR = 0.08
+    Q_LEARNING_RATE = 0.1
+    Q_DISCOUNT_FACTOR = 0.9
+    Q_EXPLORATION_RATE = 0.2
+    Q_EXPLORATION_DECAY = 0.995
+    SILENT_INVASION_COST_MULTIPLIER = 0.40
+    LOUD_INVASION_BASE_DETECTION_PROB = 0.95
+    CAMO_DETECTION_REDUCTION_FACTOR = 0.05
+    MIN_DETECTION_PROBABILITY = 0.20
+    DISMANTLE_RETURN_RATE = 0.80
+    DISMANTLE_MIN_THRESHOLD = 1.0
+    DISMANTLE_AMOUNT_FRACTION = 0.25
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -90,10 +120,27 @@ class Civilisation:
         self.has_been_attacked = False
         self.attack_count = 0
         
+        # Combat accuracy tracking (learning system)
+        self.total_attacks = 0
+        self.successful_hits = 0
+        self.missed_attacks = 0
+        self.current_accuracy = HIT_ACCURACY_BASE
+        
+        # Q-Learning for strategic decisions (Bellman equation)
+        # State-action values: Q(state, action)
+        # Actions: 'silent_invasion', 'loud_invasion'
+        self.q_table = {}
+        self.exploration_rate = Q_EXPLORATION_RATE
+        
         # Economic investments
         self.weapon_investment = 1.0
         self.search_investment = 1.0
         self.camo_investment = 0.0
+        
+        # Investment cost tracking (for dismantling with 80% return)
+        self.total_invested_in_weapons = 0.0
+        self.total_invested_in_search = 0.0
+        self.total_invested_in_camo = 0.0
         
         # Economic strategy preferences
         self.strategy_weights = {
@@ -435,6 +482,7 @@ class Civilisation:
             if actual_cost <= self.resources:
                 self.weapon_investment += desired_gain
                 self.resources -= actual_cost
+                self.total_invested_in_weapons += actual_cost  # Track for dismantling
                 total_spent += actual_cost
                 actual_costs['weapons'] = actual_cost
                 investments_made.append(f"Wpn+{desired_gain:.1f}(${actual_cost:.1f})")
@@ -444,6 +492,7 @@ class Civilisation:
                 affordable_cost = self.resources
                 self.weapon_investment += affordable_gain
                 self.resources -= affordable_cost
+                self.total_invested_in_weapons += affordable_cost  # Track for dismantling
                 total_spent += affordable_cost
                 actual_costs['weapons'] = affordable_cost
                 investments_made.append(f"Wpn+{affordable_gain:.1f}(${affordable_cost:.1f},LIMITED)")
@@ -455,6 +504,7 @@ class Civilisation:
             if actual_cost <= self.resources:
                 self.search_investment += desired_gain
                 self.resources -= actual_cost
+                self.total_invested_in_search += actual_cost  # Track for dismantling
                 total_spent += actual_cost
                 actual_costs['search'] = actual_cost
                 investments_made.append(f"Sch+{desired_gain:.1f}(${actual_cost:.1f})")
@@ -463,6 +513,7 @@ class Civilisation:
                 affordable_cost = self.resources
                 self.search_investment += affordable_gain
                 self.resources -= affordable_cost
+                self.total_invested_in_search += affordable_cost  # Track for dismantling
                 total_spent += affordable_cost
                 actual_costs['search'] = affordable_cost
                 investments_made.append(f"Sch+{affordable_gain:.1f}(${affordable_cost:.1f},LIMITED)")
@@ -474,6 +525,7 @@ class Civilisation:
             if actual_cost <= self.resources:
                 self.camo_investment += desired_gain
                 self.resources -= actual_cost
+                self.total_invested_in_camo += actual_cost  # Track for dismantling
                 total_spent += actual_cost
                 actual_costs['camo'] = actual_cost
                 investments_made.append(f"Cam+{desired_gain:.1f}(${actual_cost:.1f})")
@@ -482,6 +534,7 @@ class Civilisation:
                 affordable_cost = self.resources
                 self.camo_investment += affordable_gain
                 self.resources -= affordable_cost
+                self.total_invested_in_camo += affordable_cost  # Track for dismantling
                 total_spent += affordable_cost
                 actual_costs['camo'] = affordable_cost
                 investments_made.append(f"Cam+{affordable_gain:.1f}(${affordable_cost:.1f},LIMITED)")
@@ -494,6 +547,136 @@ class Civilisation:
         summary = " | ".join(investments_made) if investments_made else "No investments"
         
         return summary, actual_costs
+    
+    def dismantle_investment(self, category: str, amount_fraction: float = None) -> float:
+        """
+        Dismantle (reduce) investment in a category and recover resources.
+        Returns 80% of originally invested resources (DISMANTLE_RETURN_RATE).
+        
+        This represents dismantling infrastructure:
+        - Weapons: Decommissioning weapon systems
+        - Search: Shutting down observation stations
+        - Camo: Removing stealth equipment
+        
+        Args:
+            category: 'weapons', 'search', or 'camo'
+            amount_fraction: Fraction of total investment to dismantle (default: DISMANTLE_AMOUNT_FRACTION)
+            
+        Returns:
+            float: Resources recovered from dismantling
+        """
+        if amount_fraction is None:
+            amount_fraction = DISMANTLE_AMOUNT_FRACTION
+        
+        amount_fraction = max(0.0, min(1.0, amount_fraction))  # Clamp to [0, 1]
+        
+        if category == 'weapons':
+            current_investment = self.weapon_investment
+            total_invested = self.total_invested_in_weapons
+            
+            if current_investment < DISMANTLE_MIN_THRESHOLD:
+                return 0.0  # Not enough to dismantle
+            
+            # Calculate how much to dismantle
+            dismantle_level = current_investment * amount_fraction
+            cost_fraction = dismantle_level / current_investment if current_investment > 0 else 0
+            resources_to_recover = total_invested * cost_fraction * DISMANTLE_RETURN_RATE
+            
+            # Update investments
+            self.weapon_investment -= dismantle_level
+            self.total_invested_in_weapons -= (total_invested * cost_fraction)
+            self.resources += resources_to_recover
+            
+            print(f"      🔧 [{self.name}] dismantled {dismantle_level:.1f} weapon investment → recovered {resources_to_recover:.1f} resources")
+            return resources_to_recover
+            
+        elif category == 'search':
+            current_investment = self.search_investment
+            total_invested = self.total_invested_in_search
+            
+            if current_investment < DISMANTLE_MIN_THRESHOLD:
+                return 0.0
+            
+            dismantle_level = current_investment * amount_fraction
+            cost_fraction = dismantle_level / current_investment if current_investment > 0 else 0
+            resources_to_recover = total_invested * cost_fraction * DISMANTLE_RETURN_RATE
+            
+            self.search_investment -= dismantle_level
+            self.total_invested_in_search -= (total_invested * cost_fraction)
+            self.resources += resources_to_recover
+            
+            print(f"      🔧 [{self.name}] dismantled {dismantle_level:.1f} search investment → recovered {resources_to_recover:.1f} resources")
+            return resources_to_recover
+            
+        elif category == 'camo':
+            current_investment = self.camo_investment
+            total_invested = self.total_invested_in_camo
+            
+            if current_investment < DISMANTLE_MIN_THRESHOLD:
+                return 0.0
+            
+            dismantle_level = current_investment * amount_fraction
+            cost_fraction = dismantle_level / current_investment if current_investment > 0 else 0
+            resources_to_recover = total_invested * cost_fraction * DISMANTLE_RETURN_RATE
+            
+            self.camo_investment -= dismantle_level
+            self.total_invested_in_camo -= (total_invested * cost_fraction)
+            self.resources += resources_to_recover
+            
+            print(f"      🔧 [{self.name}] dismantled {dismantle_level:.1f} camo investment → recovered {resources_to_recover:.1f} resources")
+            return resources_to_recover
+        
+        return 0.0
+    
+    def should_dismantle(self, galaxy: Galaxy) -> tuple[bool, str]:
+        """
+        Determine if civilization should dismantle investments due to resource pressure.
+        
+        Decision factors:
+        - High resource pressure in galaxy (Axiom 2: finite resources)
+        - Low personal resources
+        - Imbalanced investment portfolio
+        
+        Returns:
+            tuple: (should_dismantle: bool, category: str)
+        """
+        resource_pressure = galaxy.get_resource_pressure()
+        
+        # Don't dismantle if resources are comfortable
+        if self.resources > 50.0:
+            return False, ''
+        
+        # Only dismantle under significant pressure
+        if resource_pressure < 0.7:
+            return False, ''
+        
+        # Find least valuable investment to dismantle
+        # Priority: dismantle what's least needed for current strategy
+        investments = {
+            'weapons': (self.weapon_investment, self.strategy_weights['weapons']),
+            'search': (self.search_investment, self.strategy_weights['search']),
+            'camo': (self.camo_investment, self.strategy_weights['camo'])
+        }
+        
+        # Calculate "waste score" = (investment level) - (strategy preference * 10)
+        # High waste score = overinvested relative to strategy
+        waste_scores = {}
+        for cat, (level, weight) in investments.items():
+            if level >= DISMANTLE_MIN_THRESHOLD:
+                waste_score = level - (weight * 20)  # Higher weight = less waste
+                waste_scores[cat] = waste_score
+        
+        if not waste_scores:
+            return False, ''
+        
+        # Dismantle the most wasteful investment
+        category_to_dismantle = max(waste_scores, key=waste_scores.get)
+        
+        # Only dismantle if pressure is high enough
+        if resource_pressure > 0.85:
+            return True, category_to_dismantle
+        
+        return False, ''
     
     def get_effective_detection_range(self) -> float:
         """
@@ -584,14 +767,7 @@ class Civilisation:
         strike_probability = self.survival_drive * base_strike_probability * weapon_confidence
         
         return min(1.0, max(0.0, strike_probability))
-    
-    # ============================================================================
-    # EXISTING METHODS (Enhanced)
-    # ============================================================================
-    
-        
-        return min(1.0, max(0.0, strike_probability))
-    
+
     def get_coordinates(self): 
         return (self.x, self.y)
     
@@ -613,6 +789,152 @@ class Civilisation:
     
     def check_is_active(self): 
         return self.is_active
+    
+    def calculate_hit_probability(self) -> float:
+        """
+        Calculate probability of successful attack hit.
+        Improves with weapon investment and combat experience.
+        Never reaches 100% - always some uncertainty.
+        
+        Returns:
+            float: Hit probability between HIT_ACCURACY_BASE and HIT_ACCURACY_MAX
+        """
+        # Base accuracy (starting point)
+        base_accuracy = HIT_ACCURACY_BASE
+        
+        # Investment bonus: weapon investment improves accuracy
+        investment_bonus = min(0.30, self.weapon_investment * ACCURACY_INVESTMENT_FACTOR)
+        
+        # Experience bonus: learn from past attacks
+        if self.total_attacks > 0:
+            hit_rate = self.successful_hits / self.total_attacks
+            experience_bonus = hit_rate * ACCURACY_LEARNING_RATE * math.sqrt(self.total_attacks)
+            experience_bonus = min(0.25, experience_bonus)
+        else:
+            experience_bonus = 0.0
+        
+        # Calculate total accuracy (capped at max)
+        accuracy = base_accuracy + investment_bonus + experience_bonus
+        accuracy = min(HIT_ACCURACY_MAX, accuracy)
+        
+        self.current_accuracy = accuracy
+        return accuracy
+    
+    def calculate_detection_probability(self) -> float:
+        """
+        Calculate probability of being detected during a loud invasion.
+        Higher camo investment reduces detection probability.
+        Never reaches 0% - always some chance of being detected.
+        
+        Returns:
+            float: Detection probability between MIN_DETECTION_PROBABILITY and LOUD_INVASION_BASE_DETECTION_PROB
+        """
+        # Base detection probability (very high for loud invasions)
+        base_detection = LOUD_INVASION_BASE_DETECTION_PROB
+        
+        # Camo reduction: each point of camo reduces detection chance
+        camo_reduction = self.camo_investment * CAMO_DETECTION_REDUCTION_FACTOR
+        
+        # Calculate detection probability (capped at minimum)
+        detection_prob = base_detection - camo_reduction
+        detection_prob = max(MIN_DETECTION_PROBABILITY, detection_prob)
+        
+        return detection_prob
+    
+    def record_attack_result(self, hit: bool):
+        """
+        Record the result of an attack for learning.
+        
+        Args:
+            hit: True if attack was successful, False if missed
+        """
+        self.total_attacks += 1
+        if hit:
+            self.successful_hits += 1
+        else:
+            self.missed_attacks += 1
+    
+    def get_invasion_state(self, target: 'Civilisation', galaxy: Galaxy) -> str:
+        """
+        Create a simplified state representation for Q-learning.
+        
+        Returns:
+            str: State key for Q-table
+        """
+        # Discretize continuous values for state representation
+        resource_ratio = "high" if self.resources > target.resources * 1.5 else \
+                        "low" if self.resources < target.resources * 0.67 else "equal"
+        
+        num_known = len(self.known_civs)
+        known_civs_level = "many" if num_known >= 3 else "some" if num_known >= 1 else "none"
+        
+        resource_level = "rich" if self.resources > 100 else \
+                        "poor" if self.resources < 50 else "moderate"
+        
+        return f"{resource_ratio}_{known_civs_level}_{resource_level}"
+    
+    def choose_invasion_strategy(self, target: 'Civilisation', galaxy: Galaxy) -> str:
+        """
+        Use Q-learning (Bellman equation) to choose between silent and loud invasion.
+        
+        Q(s,a) = Q(s,a) + α[R + γ·max(Q(s',a')) - Q(s,a)]
+        
+        Where:
+        - s = current state
+        - a = action (silent/loud)
+        - α = learning rate
+        - R = immediate reward
+        - γ = discount factor
+        
+        Returns:
+            str: 'silent' or 'loud'
+        """
+        state = self.get_invasion_state(target, galaxy)
+        
+        # Initialize Q-values for this state if not seen before
+        if state not in self.q_table:
+            self.q_table[state] = {
+                'silent': 0.0,
+                'loud': 0.0
+            }
+        
+        # Epsilon-greedy exploration
+        if random.random() < self.exploration_rate:
+            # Explore: random choice
+            action = random.choice(['silent', 'loud'])
+        else:
+            # Exploit: choose best known action
+            q_values = self.q_table[state]
+            action = max(q_values, key=q_values.get)
+        
+        # Decay exploration rate over time
+        self.exploration_rate *= Q_EXPLORATION_DECAY
+        self.exploration_rate = max(0.01, self.exploration_rate)
+        
+        return action
+    
+    def update_q_value(self, state: str, action: str, reward: float, next_state: str):
+        """
+        Update Q-value using Bellman equation.
+        
+        Args:
+            state: Previous state
+            action: Action taken
+            reward: Immediate reward received
+            next_state: New state after action
+        """
+        # Initialize states if not seen
+        if state not in self.q_table:
+            self.q_table[state] = {'silent': 0.0, 'loud': 0.0}
+        if next_state not in self.q_table:
+            self.q_table[next_state] = {'silent': 0.0, 'loud': 0.0}
+        
+        # Bellman equation update
+        current_q = self.q_table[state][action]
+        max_next_q = max(self.q_table[next_state].values())
+        
+        new_q = current_q + Q_LEARNING_RATE * (reward + Q_DISCOUNT_FACTOR * max_next_q - current_q)
+        self.q_table[state][action] = new_q
 
     def check_extinction(self):
         if self.resources <= 0:

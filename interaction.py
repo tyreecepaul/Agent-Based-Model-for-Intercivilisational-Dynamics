@@ -10,13 +10,17 @@ try:
         COOPERATION_BENEFIT_BASE,
         ARMS_RACE_COST,
         ARMS_RACE_TECH_GAIN,
-        DEFENSE_COST
+        DEFENSE_COST,
+        SILENT_INVASION_COST_MULTIPLIER,
+        LOUD_INVASION_EXPOSURE_SUSPICION
     )
 except ImportError:
     COOPERATION_BENEFIT_BASE = 15.0
     ARMS_RACE_COST = 10
     ARMS_RACE_TECH_GAIN = 2
     DEFENSE_COST = 8
+    SILENT_INVASION_COST_MULTIPLIER = 0.40
+    LOUD_INVASION_EXPOSURE_SUSPICION = 0.6
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -62,12 +66,12 @@ class InteractionManager:
         # Scenario 2: Only A strikes (A has advantage)
         elif a_strikes and not b_strikes:
             print(f"🎯 FIRST STRIKE: [{civ_a.name}] → [{civ_b.name}] (prob: {strike_prob_a:.2%})")
-            InteractionManager._first_strike(civ_a, civ_b, galaxy)
+            InteractionManager._execute_strike(civ_a, civ_b, galaxy)
         
         # Scenario 3: Only B strikes (B has advantage)
         elif b_strikes and not a_strikes:
             print(f"🎯 FIRST STRIKE: [{civ_b.name}] → [{civ_a.name}] (prob: {strike_prob_b:.2%})")
-            InteractionManager._first_strike(civ_b, civ_a, galaxy)
+            InteractionManager._execute_strike(civ_b, civ_a, galaxy)
         
         # Scenario 4: Neither strikes - evaluate cooperation vs suspicion
         else:
@@ -75,45 +79,236 @@ class InteractionManager:
                                                      strike_prob_a, strike_prob_b)
     
     @staticmethod
-    def _first_strike(attacker: Civilisation, target: Civilisation, galaxy: Galaxy):
+    def _execute_strike(attacker: 'Civilisation', target: 'Civilisation', galaxy: Galaxy):
         """
-        Execute a first strike attack with element of surprise.
-        Attacker has significant advantage due to surprise.
+        Execute a first strike with invasion strategy choice and accuracy system.
+        Attacker chooses between silent (costly but hidden) or loud (cheaper but exposes both).
         
         Args:
             attacker: The attacking civilization
             target: The target civilization
-            galaxy: The galaxy instance (string type hint)
+            galaxy: The galaxy instance
         """
-        # Attacker advantage: 1.5x damage multiplier for surprise
-        base_damage = InteractionManager.get_attack_power(attacker)
-        surprise_multiplier = 1.5
-        total_damage = base_damage * surprise_multiplier
+        # Get state before action
+        initial_state = attacker.get_invasion_state(target, galaxy)
         
-        # Apply damage
-        target.resources -= total_damage
-        target.has_been_attacked = True
-        attacker.attack_count += 1
+        # Attacker chooses invasion strategy using Q-learning
+        invasion_strategy = attacker.choose_invasion_strategy(target, galaxy)
         
-        print(f"   💥 [{attacker.name}] dealt {total_damage:.2f} damage (surprise attack)")
-        print(f"   💔 [{target.name}] resources: {max(0, target.resources):.2f}")
-        
-        # Check if target survives
-        if target.resources <= 0:
-            print(f"   ☠️  [{target.name}] has been ELIMINATED")
-            target.check_extinction()
-            
-            # Winner claims half of victim's initial resources (not more than they had)
-            resource_gain = min(100, abs(target.resources) * 0.5)
-            attacker.resources += resource_gain
-            print(f"   💰 [{attacker.name}] gained {resource_gain:.2f} resources")
+        if invasion_strategy == 'silent':
+            reward = InteractionManager._silent_invasion(attacker, target, galaxy)
         else:
-            # Target survived and may retaliate
-            print(f"   🛡️  [{target.name}] survived and retaliates!")
-            counter_damage = InteractionManager.get_attack_power(target) * 0.7  # Weakened
+            reward = InteractionManager._loud_invasion(attacker, target, galaxy)
+        
+        # Update Q-value based on outcome
+        final_state = attacker.get_invasion_state(target, galaxy)
+        attacker.update_q_value(initial_state, invasion_strategy, reward, final_state)
+    
+    @staticmethod
+    def _silent_invasion(attacker: 'Civilisation', target: 'Civilisation', galaxy: Galaxy) -> float:
+        """
+        Execute a silent invasion - no location exposure but high resource cost.
+        
+        Args:
+            attacker: The attacking civilization
+            target: The target civilization
+            galaxy: The galaxy instance
+            
+        Returns:
+            float: Reward value for Q-learning
+        """
+        print(f"   🤫 SILENT INVASION: [{attacker.name}] invades covertly")
+        
+        # Silent invasion cost (significant resource expenditure for stealth)
+        stealth_cost = attacker.resources * SILENT_INVASION_COST_MULTIPLIER
+        attacker.resources -= stealth_cost
+        print(f"   💸 Stealth operations cost: {stealth_cost:.2f} resources")
+        
+        # Calculate hit probability
+        hit_probability = attacker.calculate_hit_probability()
+        attack_hits = random.random() < hit_probability
+        
+        # Record the result for learning
+        attacker.record_attack_result(attack_hits)
+        
+        if attack_hits:
+            # Successful hit - deal damage with surprise bonus
+            base_damage = InteractionManager.get_attack_power(attacker)
+            surprise_multiplier = 1.5
+            total_damage = base_damage * surprise_multiplier
+            
+            target.resources -= total_damage
+            target.has_been_attacked = True
+            attacker.attack_count += 1
+            
+            print(f"   ✅ HIT! Accuracy: {hit_probability:.1%} | Damage: {total_damage:.2f}")
+            print(f"   💔 [{target.name}] resources: {max(0, target.resources):.2f}")
+            
+            # Check if target survives
+            if target.resources <= 0:
+                print(f"   ☠️  [{target.name}] has been ELIMINATED")
+                target.check_extinction()
+                
+                # Winner claims resources
+                resource_gain = min(100, abs(target.resources) * 0.5)
+                attacker.resources += resource_gain
+                print(f"   💰 [{attacker.name}] gained {resource_gain:.2f} resources")
+                
+                # High reward for successful elimination
+                reward = 100.0 + resource_gain - stealth_cost
+            else:
+                # Target survived - moderate reward minus stealth cost
+                print(f"   🛡️  [{target.name}] survived but is weakened")
+                counter_damage = InteractionManager.get_attack_power(target) * 0.7
+                attacker.resources -= counter_damage
+                print(f"   ⚡ [{target.name}] counter-attacked for {counter_damage:.2f} damage")
+                attacker.check_extinction()
+                
+                reward = total_damage - stealth_cost - counter_damage
+        else:
+            # Attack missed!
+            print(f"   ❌ MISS! Accuracy: {hit_probability:.1%}")
+            print(f"   🎯 [{attacker.name}] learns from failure (accuracy: {attacker.successful_hits}/{attacker.total_attacks})")
+            
+            # Target detects the failed attack and retaliates
+            print(f"   ⚠️  [{target.name}] detected the attack and retaliates!")
+            counter_damage = InteractionManager.get_attack_power(target) * 0.9  # Strong retaliation
             attacker.resources -= counter_damage
             print(f"   ⚡ [{target.name}] counter-attacked for {counter_damage:.2f} damage")
             attacker.check_extinction()
+            
+            # Negative reward: stealth cost paid + damage taken, no benefit
+            reward = -stealth_cost - counter_damage
+        
+        # No location exposure in silent invasions
+        print(f"   🔒 Both civilizations remain hidden from others")
+        
+        return reward
+    
+    @staticmethod
+    def _loud_invasion(attacker: 'Civilisation', target: 'Civilisation', galaxy: Galaxy) -> float:
+        """
+        Execute a loud invasion - cheaper but exposes both civilizations to all others.
+        
+        Args:
+            attacker: The attacking civilization
+            target: The target civilization
+            galaxy: The galaxy instance
+            
+        Returns:
+            float: Reward value for Q-learning
+        """
+        print(f"   📢 LOUD INVASION: [{attacker.name}] attacks openly!")
+        
+        # Calculate hit probability
+        hit_probability = attacker.calculate_hit_probability()
+        attack_hits = random.random() < hit_probability
+        
+        # Record the result for learning
+        attacker.record_attack_result(attack_hits)
+        
+        if attack_hits:
+            # Successful hit
+            base_damage = InteractionManager.get_attack_power(attacker)
+            surprise_multiplier = 1.5
+            total_damage = base_damage * surprise_multiplier
+            
+            target.resources -= total_damage
+            target.has_been_attacked = True
+            attacker.attack_count += 1
+            
+            print(f"   ✅ HIT! Accuracy: {hit_probability:.1%} | Damage: {total_damage:.2f}")
+            print(f"   💔 [{target.name}] resources: {max(0, target.resources):.2f}")
+            
+            # Check if target survives
+            if target.resources <= 0:
+                print(f"   ☠️  [{target.name}] has been ELIMINATED")
+                target.check_extinction()
+                
+                resource_gain = min(100, abs(target.resources) * 0.5)
+                attacker.resources += resource_gain
+                print(f"   💰 [{attacker.name}] gained {resource_gain:.2f} resources")
+                
+                reward = 100.0 + resource_gain
+            else:
+                print(f"   🛡️  [{target.name}] survived and retaliates!")
+                counter_damage = InteractionManager.get_attack_power(target) * 0.7
+                attacker.resources -= counter_damage
+                print(f"   ⚡ [{target.name}] counter-attacked for {counter_damage:.2f} damage")
+                attacker.check_extinction()
+                
+                reward = total_damage - counter_damage
+        else:
+            # Attack missed!
+            print(f"   ❌ MISS! Accuracy: {hit_probability:.1%}")
+            print(f"   🎯 [{attacker.name}] learns from failure (accuracy: {attacker.successful_hits}/{attacker.total_attacks})")
+            
+            print(f"   ⚠️  [{target.name}] detected the attack and retaliates!")
+            counter_damage = InteractionManager.get_attack_power(target) * 0.9
+            attacker.resources -= counter_damage
+            print(f"   ⚡ [{target.name}] counter-attacked for {counter_damage:.2f} damage")
+            attacker.check_extinction()
+            
+            reward = -counter_damage
+        
+        # LOUD INVASION: Potential exposure based on camo investment
+        # Calculate detection probabilities for both attacker and target
+        attacker_detection_prob = attacker.calculate_detection_probability()
+        target_detection_prob = target.calculate_detection_probability()
+        
+        print(f"   🌍 EXPOSURE CHECK:")
+        print(f"      [{attacker.name}] detection probability: {attacker_detection_prob:.1%} (camo: {attacker.camo_investment:.1f})")
+        print(f"      [{target.name}] detection probability: {target_detection_prob:.1%} (camo: {target.camo_investment:.1f})")
+        
+        detected_attacker_count = 0
+        detected_target_count = 0
+        
+        for civ in galaxy.civilisations:
+            if civ.is_active and civ.name != attacker.name and civ.name != target.name:
+                # Check if this civilization detects the attacker
+                attacker_detected = random.random() < attacker_detection_prob
+                target_detected = random.random() < target_detection_prob
+                
+                if attacker_detected:
+                    detected_attacker_count += 1
+                    if attacker.name not in civ.known_civs:
+                        civ.known_civs[attacker.name] = LOUD_INVASION_EXPOSURE_SUSPICION
+                        print(f"      👁️  [{civ.name}] DETECTED [{attacker.name}] (suspicion: {LOUD_INVASION_EXPOSURE_SUSPICION:.2f})")
+                    else:
+                        civ.known_civs[attacker.name] = min(1.0, civ.known_civs[attacker.name] + 0.2)
+                        print(f"      👁️  [{civ.name}] DETECTED [{attacker.name}] (suspicion increased)")
+                else:
+                    print(f"      🔒 [{civ.name}] FAILED to detect [{attacker.name}] (camo effective!)")
+                
+                if target_detected:
+                    detected_target_count += 1
+                    if target.name not in civ.known_civs:
+                        civ.known_civs[target.name] = LOUD_INVASION_EXPOSURE_SUSPICION
+                        print(f"      👁️  [{civ.name}] DETECTED [{target.name}] (suspicion: {LOUD_INVASION_EXPOSURE_SUSPICION:.2f})")
+                    else:
+                        civ.known_civs[target.name] = min(1.0, civ.known_civs[target.name] + 0.2)
+                        print(f"      👁️  [{civ.name}] DETECTED [{target.name}] (suspicion increased)")
+                else:
+                    print(f"      🔒 [{civ.name}] FAILED to detect [{target.name}] (camo effective!)")
+        
+        # Penalty for exposure in reward calculation (only for detected civilizations)
+        exposure_penalty = 20.0 * detected_attacker_count
+        reward -= exposure_penalty
+        
+        if detected_attacker_count == 0 and detected_target_count == 0:
+            print(f"   🎭 STEALTH SUCCESS: No civilizations detected the invasion!")
+        elif detected_attacker_count > 0 or detected_target_count > 0:
+            print(f"   📡 Detected by {detected_attacker_count + detected_target_count} civilization(s)")
+        
+        return reward
+    
+    @staticmethod
+    def _first_strike(attacker: Civilisation, target: Civilisation, galaxy: Galaxy):
+        """
+        DEPRECATED: Legacy method kept for compatibility.
+        Use _execute_strike instead which includes invasion strategy and accuracy.
+        """
+        InteractionManager._execute_strike(attacker, target, galaxy)
     
     @staticmethod
     def _mutual_combat(civ_a: Civilisation, civ_b: Civilisation):

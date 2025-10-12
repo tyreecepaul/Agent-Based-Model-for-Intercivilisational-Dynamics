@@ -447,35 +447,57 @@ class SimulationAnalyzer:
     def plot_winner_characteristics(self):
         """Plot distribution of winner characteristics."""
         fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        fig.suptitle('Winner Characteristics Distribution', fontsize=16, fontweight='bold')
+        fig.patch.set_facecolor('#0a0a0a')
+        fig.suptitle('🏆 Winner Characteristics Distribution', fontsize=18, fontweight='bold', color='#ffffff')
         
         characteristics = [
-            ('winner_resources', 'Resources'),
-            ('winner_tech', 'Technology'),
-            ('winner_weapon_investment', 'Weapon Investment'),
-            ('winner_search_investment', 'Search Investment'),
-            ('winner_camo_investment', 'Camouflage Investment'),
-            ('winner_known_civs', 'Known Civilizations')
+            ('winner_resources', '💰 Resources'),
+            ('winner_tech', '⚗️ Technology'),
+            ('winner_weapon_investment', '⚔️ Weapon Investment'),
+            ('winner_search_investment', '🔍 Search Investment'),
+            ('winner_camo_investment', '🎭 Camouflage Investment'),
+            ('winner_known_civs', '👁️ Known Civilizations')
         ]
+        
+        colors = ['#00ff88', '#00ddff', '#ff3366', '#ffcc00', '#aa44ff', '#ff8800']
         
         for idx, (col, title) in enumerate(characteristics):
             ax = axes[idx // 3, idx % 3]
+            ax.set_facecolor('#0f0f0f')
             
-            # Histogram with KDE
-            self.df[col].hist(bins=15, ax=ax, alpha=0.7, edgecolor='black')
-            ax.set_title(title, fontweight='bold')
-            ax.set_xlabel(title)
-            ax.set_ylabel('Frequency')
+            # Histogram with enhanced styling
+            n, bins, patches = ax.hist(self.df[col], bins=15, alpha=0.8, 
+                                      edgecolor='#ffffff', linewidth=1.5, 
+                                      color=colors[idx])
             
-            # Add mean line
+            # Color gradient for bars
+            for i, patch in enumerate(patches):
+                patch.set_facecolor(colors[idx])
+                patch.set_alpha(0.7 + 0.3 * (i / len(patches)))
+            
+            ax.set_title(title, fontweight='bold', fontsize=12, color='#ffffff', pad=10)
+            ax.set_xlabel(title.split()[-1], fontsize=10, color='#cccccc')
+            ax.set_ylabel('Frequency', fontsize=10, color='#cccccc')
+            ax.tick_params(colors='#999999', labelsize=9)
+            ax.grid(True, alpha=0.1, color='#666666')
+            
+            # Add mean line with glow effect
             mean_val = self.df[col].mean()
-            ax.axvline(mean_val, color='red', linestyle='--', linewidth=2, label=f'Mean: {mean_val:.2f}')
-            ax.legend()
+            ax.axvline(mean_val, color='#ffffff', linestyle='--', linewidth=2.5, 
+                      label=f'Mean: {mean_val:.2f}', alpha=0.9, zorder=10)
+            
+            # Style spines
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#444444')
+                spine.set_linewidth(1.5)
+            
+            legend = ax.legend(framealpha=0.9, facecolor='#1a1a1a', 
+                             edgecolor='#666666', labelcolor='#ffffff')
         
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'winner_characteristics.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def plot_correlation_matrix(self):
@@ -488,119 +510,215 @@ class SimulationAnalyzer:
         
         corr_matrix = self.df[numeric_cols].corr()
         
-        plt.figure(figsize=(12, 10))
-        sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', 
-                   center=0, square=True, linewidths=1, cbar_kws={"shrink": 0.8})
-        plt.title('Correlation Matrix: Simulation Variables', fontsize=16, fontweight='bold', pad=20)
+        fig, ax = plt.subplots(figsize=(12, 10))
+        fig.patch.set_facecolor('#0a0a0a')
+        ax.set_facecolor('#0f0f0f')
+        
+        # Enhanced heatmap with custom colormap
+        im = ax.imshow(corr_matrix, cmap='RdYlGn', aspect='auto', 
+                      vmin=-1, vmax=1, interpolation='nearest')
+        
+        # Colorbar
+        cbar = plt.colorbar(im, ax=ax, shrink=0.8)
+        cbar.ax.set_facecolor('#1a1a1a')
+        cbar.ax.tick_params(colors='#ffffff', labelsize=10)
+        cbar.outline.set_edgecolor('#444444')
+        cbar.outline.set_linewidth(1.5)
+        
+        # Tick labels
+        labels = ['Steps', 'Resources', 'Tech', 'Weapon', 'Search', 'Camo', 'Pressure']
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_yticks(np.arange(len(labels)))
+        ax.set_xticklabels(labels, fontsize=11, color='#ffffff', rotation=45, ha='right')
+        ax.set_yticklabels(labels, fontsize=11, color='#ffffff')
+        
+        # Annotate cells
+        for i in range(len(corr_matrix)):
+            for j in range(len(corr_matrix)):
+                value = corr_matrix.iloc[i, j]
+                color = '#000000' if abs(value) > 0.5 else '#ffffff'
+                ax.text(j, i, f'{value:.2f}', ha='center', va='center',
+                       color=color, fontsize=10, fontweight='bold')
+        
+        # Grid
+        ax.set_xticks(np.arange(len(labels))-.5, minor=True)
+        ax.set_yticks(np.arange(len(labels))-.5, minor=True)
+        ax.grid(which='minor', color='#444444', linestyle='-', linewidth=2)
+        ax.tick_params(which='minor', size=0)
+        
+        # Title
+        ax.set_title('📊 Correlation Matrix: Simulation Variables', 
+                    fontsize=16, fontweight='bold', pad=20, color='#ffffff')
+        
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'correlation_matrix.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def plot_time_series_comparison(self):
         """Plot time series data from multiple simulations."""
         fig, axes = plt.subplots(3, 1, figsize=(15, 12))
-        fig.suptitle('Time Series Comparison Across Simulations', fontsize=16, fontweight='bold')
+        fig.patch.set_facecolor('#0a0a0a')
+        fig.suptitle('📈 Time Series Comparison Across Simulations', 
+                    fontsize=18, fontweight='bold', color='#ffffff')
+        
+        colors = plt.cm.viridis(np.linspace(0, 1, 10))
         
         # Resource Pressure
         ax1 = axes[0]
-        for result in self.results[:10]:  # Plot first 10 for clarity
-            ax1.plot(result.resource_pressure_history, alpha=0.5, linewidth=1)
-        ax1.set_title('Resource Pressure Over Time', fontweight='bold')
-        ax1.set_xlabel('Time Step')
-        ax1.set_ylabel('Resource Pressure')
+        ax1.set_facecolor('#0f0f0f')
+        for i, result in enumerate(self.results[:10]):  # Plot first 10 for clarity
+            ax1.plot(result.resource_pressure_history, alpha=0.7, linewidth=1.5, 
+                    color=colors[i], label=f'Sim {i+1}')
+        ax1.set_title('📊 Resource Pressure Over Time', fontweight='bold', 
+                     fontsize=13, color='#ffffff', pad=10)
+        ax1.set_xlabel('Time Step', fontsize=11, color='#cccccc')
+        ax1.set_ylabel('Resource Pressure', fontsize=11, color='#cccccc')
         ax1.set_ylim(0, 1)
+        ax1.tick_params(colors='#999999', labelsize=9)
+        ax1.grid(True, alpha=0.15, color='#666666', linestyle='--')
+        for spine in ax1.spines.values():
+            spine.set_edgecolor('#444444')
+            spine.set_linewidth(1.5)
         
         # Active Civilizations
         ax2 = axes[1]
-        for result in self.results[:10]:
-            ax2.plot(result.active_civs_history, alpha=0.5, linewidth=1)
-        ax2.set_title('Active Civilizations Over Time', fontweight='bold')
-        ax2.set_xlabel('Time Step')
-        ax2.set_ylabel('Active Civilizations')
+        ax2.set_facecolor('#0f0f0f')
+        for i, result in enumerate(self.results[:10]):
+            ax2.plot(result.active_civs_history, alpha=0.7, linewidth=1.5, 
+                    color=colors[i])
+        ax2.set_title('🌌 Active Civilizations Over Time', fontweight='bold', 
+                     fontsize=13, color='#ffffff', pad=10)
+        ax2.set_xlabel('Time Step', fontsize=11, color='#cccccc')
+        ax2.set_ylabel('Active Civilizations', fontsize=11, color='#cccccc')
+        ax2.tick_params(colors='#999999', labelsize=9)
+        ax2.grid(True, alpha=0.15, color='#666666', linestyle='--')
+        for spine in ax2.spines.values():
+            spine.set_edgecolor('#444444')
+            spine.set_linewidth(1.5)
         
         # Total Resources
         ax3 = axes[2]
-        for result in self.results[:10]:
-            ax3.plot(result.total_resources_history, alpha=0.5, linewidth=1)
-        ax3.set_title('Total Resources in Use Over Time', fontweight='bold')
-        ax3.set_xlabel('Time Step')
-        ax3.set_ylabel('Total Resources')
+        ax3.set_facecolor('#0f0f0f')
+        for i, result in enumerate(self.results[:10]):
+            ax3.plot(result.total_resources_history, alpha=0.7, linewidth=1.5, 
+                    color=colors[i])
+        ax3.set_title('💰 Total Resources in Use Over Time', fontweight='bold', 
+                     fontsize=13, color='#ffffff', pad=10)
+        ax3.set_xlabel('Time Step', fontsize=11, color='#cccccc')
+        ax3.set_ylabel('Total Resources', fontsize=11, color='#cccccc')
+        ax3.tick_params(colors='#999999', labelsize=9)
+        ax3.grid(True, alpha=0.15, color='#666666', linestyle='--')
+        for spine in ax3.spines.values():
+            spine.set_edgecolor('#444444')
+            spine.set_linewidth(1.5)
         
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'time_series_comparison.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def plot_spending_patterns(self):
         """Plot winner spending patterns across simulations."""
         fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-        fig.suptitle('Winner Spending Patterns Analysis', fontsize=16, fontweight='bold')
+        fig.patch.set_facecolor('#0a0a0a')
+        fig.suptitle('💸 Winner Spending Patterns Analysis', fontsize=18, 
+                    fontweight='bold', color='#ffffff')
         
         spending_categories = [
-            ('winner_total_weapons_spent', 'Weapons Spending', axes[0, 0]),
-            ('winner_total_search_spent', 'Search Spending', axes[0, 1]),
-            ('winner_total_camo_spent', 'Camouflage Spending', axes[1, 0]),
-            ('winner_total_growth_spent', 'Growth Spending', axes[1, 1])
+            ('winner_total_weapons_spent', '⚔️ Weapons Spending', axes[0, 0], '#ff3366'),
+            ('winner_total_search_spent', '🔍 Search Spending', axes[0, 1], '#ffcc00'),
+            ('winner_total_camo_spent', '🎭 Camouflage Spending', axes[1, 0], '#aa44ff'),
+            ('winner_total_growth_spent', '📈 Growth Spending', axes[1, 1], '#00ff88')
         ]
         
-        for col, title, ax in spending_categories:
+        for col, title, ax, color in spending_categories:
+            ax.set_facecolor('#0f0f0f')
+            
             if col in self.df.columns:
-                self.df[col].hist(bins=20, ax=ax, alpha=0.7, edgecolor='black', color='steelblue')
-                ax.set_title(title, fontweight='bold')
-                ax.set_xlabel('Total Resources Spent')
-                ax.set_ylabel('Frequency')
+                n, bins, patches = ax.hist(self.df[col], bins=20, alpha=0.8, 
+                                          edgecolor='#ffffff', linewidth=1.5, color=color)
+                
+                # Gradient effect
+                for i, patch in enumerate(patches):
+                    patch.set_alpha(0.6 + 0.4 * (i / len(patches)))
+                
+                ax.set_title(title, fontweight='bold', fontsize=12, color='#ffffff', pad=10)
+                ax.set_xlabel('Total Resources Spent', fontsize=10, color='#cccccc')
+                ax.set_ylabel('Frequency', fontsize=10, color='#cccccc')
+                ax.tick_params(colors='#999999', labelsize=9)
+                ax.grid(True, alpha=0.1, color='#666666')
                 
                 mean_val = self.df[col].mean()
-                ax.axvline(mean_val, color='red', linestyle='--', linewidth=2, 
-                          label=f'Mean: {mean_val:.1f}')
-                ax.legend()
+                ax.axvline(mean_val, color='#ffffff', linestyle='--', linewidth=2.5, 
+                          label=f'Mean: {mean_val:.1f}', alpha=0.9, zorder=10)
+                
+                for spine in ax.spines.values():
+                    spine.set_edgecolor('#444444')
+                    spine.set_linewidth(1.5)
+                
+                legend = ax.legend(framealpha=0.9, facecolor='#1a1a1a', 
+                                 edgecolor='#666666', labelcolor='#ffffff')
         
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'spending_patterns.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def plot_spending_vs_outcome(self):
         """Plot relationship between spending and winning."""
         fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-        fig.suptitle('Spending vs Final Investment Levels', fontsize=16, fontweight='bold')
+        fig.patch.set_facecolor('#0a0a0a')
+        fig.suptitle('📊 Spending vs Final Investment Levels', fontsize=18, 
+                    fontweight='bold', color='#ffffff')
         
         comparisons = [
-            ('winner_total_weapons_spent', 'winner_weapon_investment', 'Weapons'),
-            ('winner_total_search_spent', 'winner_search_investment', 'Search'),
-            ('winner_total_camo_spent', 'winner_camo_investment', 'Camouflage'),
-            ('winner_total_growth_spent', 'winner_resources', 'Growth → Resources')
+            ('winner_total_weapons_spent', 'winner_weapon_investment', 'Weapons', '#ff3366'),
+            ('winner_total_search_spent', 'winner_search_investment', 'Search', '#ffcc00'),
+            ('winner_total_camo_spent', 'winner_camo_investment', 'Camouflage', '#aa44ff'),
+            ('winner_total_growth_spent', 'winner_resources', 'Growth → Resources', '#00ff88')
         ]
         
-        for idx, (spent_col, final_col, category) in enumerate(comparisons):
+        for idx, (spent_col, final_col, category, color) in enumerate(comparisons):
             ax = axes[idx // 2, idx % 2]
+            ax.set_facecolor('#0f0f0f')
             
             if spent_col in self.df.columns and final_col in self.df.columns:
-                # Scatter plot
+                # Scatter plot with glow
                 ax.scatter(self.df[spent_col], self.df[final_col], 
-                          alpha=0.6, s=60, edgecolors='black', linewidth=0.5)
+                          alpha=0.3, s=100, color=color, edgecolors='none')
+                ax.scatter(self.df[spent_col], self.df[final_col], 
+                          alpha=0.8, s=50, color=color, edgecolors='#ffffff', linewidth=1)
                 
                 # Trend line
                 if len(self.df) > 1:
                     z = np.polyfit(self.df[spent_col], self.df[final_col], 1)
                     p = np.poly1d(z)
                     x_line = np.linspace(self.df[spent_col].min(), self.df[spent_col].max(), 100)
-                    ax.plot(x_line, p(x_line), "r--", alpha=0.8, linewidth=2, label='Trend')
+                    ax.plot(x_line, p(x_line), color='#ffffff', linestyle='--', 
+                           alpha=0.9, linewidth=2.5, label='Trend', zorder=10)
                 
-                ax.set_xlabel(f'Total {category} Spent', fontsize=11)
-                ax.set_ylabel(f'Final {category} Level', fontsize=11)
-                ax.set_title(f'{category}: Spending vs Final Level', fontweight='bold')
-                ax.legend()
-                ax.grid(alpha=0.3)
+                ax.set_xlabel(f'Total {category} Spent', fontsize=11, color='#cccccc')
+                ax.set_ylabel(f'Final {category} Level', fontsize=11, color='#cccccc')
+                ax.set_title(f'{category}: Spending vs Final Level', 
+                           fontweight='bold', fontsize=12, color='#ffffff', pad=10)
+                ax.tick_params(colors='#999999', labelsize=9)
+                ax.grid(True, alpha=0.1, color='#666666')
+                
+                for spine in ax.spines.values():
+                    spine.set_edgecolor('#444444')
+                    spine.set_linewidth(1.5)
+                
+                legend = ax.legend(framealpha=0.9, facecolor='#1a1a1a', 
+                                 edgecolor='#666666', labelcolor='#ffffff')
         
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'spending_vs_outcome.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def plot_spending_time_series(self, max_simulations: int = 5):
@@ -616,13 +734,18 @@ class SimulationAnalyzer:
         selected_results = winner_results[:min(max_simulations, len(winner_results))]
         
         fig, axes = plt.subplots(len(selected_results), 1, figsize=(16, 4 * len(selected_results)))
+        fig.patch.set_facecolor('#0a0a0a')
         if len(selected_results) == 1:
             axes = [axes]
         
-        fig.suptitle('Winner Spending Patterns Over Time', fontsize=16, fontweight='bold')
+        fig.suptitle('💸 Winner Spending Patterns Over Time', fontsize=18, 
+                    fontweight='bold', color='#ffffff')
+        
+        colors = {'weapons': '#ff3366', 'search': '#ffcc00', 'camo': '#aa44ff', 'growth': '#00ff88'}
         
         for idx, result in enumerate(selected_results):
             ax = axes[idx]
+            ax.set_facecolor('#0f0f0f')
             winner_spending = result.spending_history.get(result.winner_name, {})
             
             if not winner_spending:
@@ -631,37 +754,42 @@ class SimulationAnalyzer:
             # Plot cumulative spending
             steps = range(len(winner_spending.get('weapons', [])))
             
-            for category, color in [('weapons', 'red'), ('search', 'blue'), 
-                                   ('camo', 'green'), ('growth', 'orange')]:
+            for category in ['weapons', 'search', 'camo', 'growth']:
                 if category in winner_spending:
                     spending = winner_spending[category]
                     cumulative = np.cumsum(spending)
                     ax.plot(steps, cumulative, label=category.title(), 
-                           color=color, linewidth=2, alpha=0.8)
+                           color=colors[category], linewidth=2.5, alpha=0.9)
             
-            ax.set_title(f'Simulation {result.simulation_id}: {result.winner_name}', 
-                        fontweight='bold')
-            ax.set_xlabel('Time Step')
-            ax.set_ylabel('Cumulative Resources Spent')
-            ax.legend(loc='upper left')
-            ax.grid(alpha=0.3)
+            ax.set_title(f'🏆 Simulation {result.simulation_id}: {result.winner_name}', 
+                        fontweight='bold', fontsize=12, color='#ffffff', pad=10)
+            ax.set_xlabel('Time Step', fontsize=11, color='#cccccc')
+            ax.set_ylabel('Cumulative Resources Spent', fontsize=11, color='#cccccc')
+            ax.tick_params(colors='#999999', labelsize=9)
+            ax.grid(True, alpha=0.1, color='#666666')
+            
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#444444')
+                spine.set_linewidth(1.5)
             
             # Add dismantling markers
             if result.winner_name in result.dismantling_history:
                 dismantling_events = result.dismantling_history[result.winner_name]
                 for event in dismantling_events:
-                    ax.axvline(event['step'], color='purple', linestyle=':', 
-                             alpha=0.6, linewidth=1.5)
+                    ax.axvline(event['step'], color='#ff00ff', linestyle=':', 
+                             alpha=0.7, linewidth=2)
                 
                 if dismantling_events:
-                    ax.plot([], [], color='purple', linestyle=':', linewidth=1.5, 
-                           label=f'Dismantling ({len(dismantling_events)} events)')
-                    ax.legend(loc='upper left')
+                    ax.plot([], [], color='#ff00ff', linestyle=':', linewidth=2, 
+                           label=f'💥 Dismantling ({len(dismantling_events)} events)')
+            
+            legend = ax.legend(loc='upper left', framealpha=0.9, facecolor='#1a1a1a', 
+                             edgecolor='#666666', labelcolor='#ffffff')
         
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'spending_time_series.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def plot_dismantling_analysis(self):
@@ -671,26 +799,49 @@ class SimulationAnalyzer:
             return
         
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-        fig.suptitle('Dismantling Behavior Analysis', fontsize=16, fontweight='bold')
+        fig.patch.set_facecolor('#0a0a0a')
+        fig.suptitle('💥 Dismantling Behavior Analysis', fontsize=18, 
+                    fontweight='bold', color='#ffffff')
         
         # Dismantling frequency
         ax1 = axes[0]
+        ax1.set_facecolor('#0f0f0f')
         dismantling_counts = self.df['winner_dismantling_events'].value_counts().sort_index()
-        ax1.bar(dismantling_counts.index, dismantling_counts.values, 
-               alpha=0.7, edgecolor='black', color='coral')
-        ax1.set_xlabel('Number of Dismantling Events', fontsize=12)
-        ax1.set_ylabel('Number of Winners', fontsize=12)
-        ax1.set_title('Dismantling Event Distribution', fontweight='bold')
-        ax1.grid(axis='y', alpha=0.3)
+        
+        bars = ax1.bar(dismantling_counts.index, dismantling_counts.values, 
+                      alpha=0.85, edgecolor='#ffffff', linewidth=1.5, color='#ff6b35')
+        
+        # Gradient effect on bars
+        for i, bar in enumerate(bars):
+            bar.set_alpha(0.7 + 0.3 * (i / len(bars)))
+        
+        ax1.set_xlabel('Number of Dismantling Events', fontsize=11, color='#cccccc')
+        ax1.set_ylabel('Number of Winners', fontsize=11, color='#cccccc')
+        ax1.set_title('Dismantling Event Distribution', fontweight='bold', 
+                     fontsize=12, color='#ffffff', pad=10)
+        ax1.tick_params(colors='#999999', labelsize=9)
+        ax1.grid(axis='y', alpha=0.1, color='#666666')
+        
+        for spine in ax1.spines.values():
+            spine.set_edgecolor('#444444')
+            spine.set_linewidth(1.5)
         
         # Resources recovered vs final resources
         ax2 = axes[1]
+        ax2.set_facecolor('#0f0f0f')
+        
+        # Scatter with glow effect
         ax2.scatter(self.df['winner_resources_recovered'], self.df['winner_resources'],
-                   alpha=0.6, s=80, edgecolors='black', linewidth=0.5, color='lightgreen')
-        ax2.set_xlabel('Resources Recovered from Dismantling', fontsize=12)
-        ax2.set_ylabel('Final Resources', fontsize=12)
-        ax2.set_title('Dismantling Recovery vs Final Resources', fontweight='bold')
-        ax2.grid(alpha=0.3)
+                   alpha=0.3, s=120, color='#00ff88', edgecolors='none')
+        ax2.scatter(self.df['winner_resources_recovered'], self.df['winner_resources'],
+                   alpha=0.8, s=60, edgecolors='#ffffff', linewidth=1, color='#00ff88')
+        
+        ax2.set_xlabel('Resources Recovered from Dismantling', fontsize=11, color='#cccccc')
+        ax2.set_ylabel('Final Resources', fontsize=11, color='#cccccc')
+        ax2.set_title('Dismantling Recovery vs Final Resources', fontweight='bold', 
+                     fontsize=12, color='#ffffff', pad=10)
+        ax2.tick_params(colors='#999999', labelsize=9)
+        ax2.grid(True, alpha=0.1, color='#666666')
         
         # Add trend line if enough data
         if len(self.df) > 1 and self.df['winner_resources_recovered'].sum() > 0:
@@ -701,13 +852,19 @@ class SimulationAnalyzer:
                 p = np.poly1d(z)
                 x_line = np.linspace(self.df['winner_resources_recovered'].min(), 
                                     self.df['winner_resources_recovered'].max(), 100)
-                ax2.plot(x_line, p(x_line), "r--", alpha=0.8, linewidth=2, label='Trend')
-                ax2.legend()
+                ax2.plot(x_line, p(x_line), color='#ffffff', linestyle='--', 
+                        alpha=0.9, linewidth=2.5, label='Trend', zorder=10)
+                legend = ax2.legend(framealpha=0.9, facecolor='#1a1a1a', 
+                                  edgecolor='#666666', labelcolor='#ffffff')
+        
+        for spine in ax2.spines.values():
+            spine.set_edgecolor('#444444')
+            spine.set_linewidth(1.5)
         
         plt.tight_layout()
         output_path = os.path.join(OUTPUT_DIR, 'dismantling_analysis.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✓ Saved: {output_path}")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='#0a0a0a')
+        print(f"✅ Saved: {output_path}")
         plt.show()
     
     def perform_pca_analysis(self):

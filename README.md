@@ -293,7 +293,7 @@ if winner:
 
 ---
 
-## 📊 Visualizations
+## Visualizations
 
 ### 1. Real-Time Universe Display
 ![Universe Display](res/display.png)
@@ -395,7 +395,7 @@ K-means clustering reveals **strategic archetypes**:
 
 ---
 
-## 🔍 Key Findings
+## Key Findings
 
 From 100+ simulation runs:
 
@@ -435,7 +435,7 @@ Survival Score = (Resources × Tech) / (Known Threats + 1)
 
 ---
 
-## 🧪 Testing Camouflage Features
+## Testing Camouflage Features
 
 Quick test to verify camo improvements are working:
 
@@ -548,7 +548,7 @@ This project is open for contributions! Areas of interest:
 
 ---
 
-## 📜 License
+## License
 
 MIT License - Feel free to use, modify, and distribute.
 

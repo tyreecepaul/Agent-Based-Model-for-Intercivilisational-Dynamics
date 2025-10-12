@@ -1,5 +1,5 @@
 """
-Enhanced vsim.py - Visualization with Dark Forest Axioms Display
+Visualization with Dark Forest Axioms Display
 Shows resource pressure, suspicion levels, and axiom dynamics in real-time
 """
 from env import Galaxy
@@ -78,14 +78,28 @@ def run_animation():
     print(f"\n🎮 Starting simulation with {len(galaxy.civilisations)} civilizations")
     print("Watch as the three axioms drive intercivilizational dynamics!\n")
 
+    # Track extra iterations after simulation completion
+    extra_iterations_remaining = [5]  # Using list to allow modification in nested function
+    simulation_ended = [False]
+
     def update(frame):
         """Animation update function - called each frame."""
         nonlocal galaxy
         
         # Check if simulation is still running
         if not galaxy.run_simulation():
-            ani.event_source.stop()
-            return
+            if not simulation_ended[0]:
+                simulation_ended[0] = True
+                print(f"\n🏁 Simulation completed at step {galaxy.time_step}. Running 5 more iterations...")
+            
+            if extra_iterations_remaining[0] > 0:
+                extra_iterations_remaining[0] -= 1
+                print(f"   Extra iteration {5 - extra_iterations_remaining[0]}/5")
+                # Continue to render the final state
+            else:
+                print("✅ All extra iterations completed. Stopping animation.")
+                ani.event_source.stop()
+                return
         
         ax_main.clear()
         ax_main.set_xlim(0, GALAXY_SIZE)

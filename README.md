@@ -28,7 +28,7 @@ This simulation explores what happens when multiple civilizations operate under 
 
 ---
 
-## 🔬 The Three Axioms
+## The Three Axioms
 
 The Dark Forest universe is governed by three fundamental axioms that drive all emergent behavior:
 
